@@ -4,7 +4,8 @@ import TicketList from './TicketList';
 import EditTicketForm from './EditTicketForm';
 import TicketDetail from './TicketDetail';
 import { db, auth } from './../firebase.js';
-import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, query, orderBy } from "firebase/firestore";
+import { formatDistanceToNow } from 'date-fns';
 
 function TicketControl () {
 
@@ -23,24 +24,40 @@ function TicketControl () {
   //     editing: false
   //   };
   // }
-  useEffect(() => {
-    const unSubscribe = onSnapshot(collection(db, "tickets"), (collectionSnapshot) => {
+
+  useEffect(() => { 
+    // new code below!
+    const queryByTimestamp = query(
+      collection(db, "tickets"), 
+      orderBy('timeOpen')
+    );
+    const unSubscribe = onSnapshot(
+      // new code below!
+      queryByTimestamp, 
+      (querySnapshot) => {
         const tickets = [];
-        collectionSnapshot.forEach((doc) => {
+        querySnapshot.forEach((doc) => {
+          const timeOpen = doc.get('timeOpen', {serverTimestamps: "estimate"}).toDate();
+          const jsDate = new Date(timeOpen);
           tickets.push({
-            ...doc.data(),
+            names: doc.data().names, 
+            location: doc.data().location, 
+            issue: doc.data().issue, 
+            timeOpen: jsDate,
+            formattedWaitTime: formatDistanceToNow(jsDate),
             id: doc.id
           });
         });
         setMainTicketList(tickets);
-    },
-    (error) => {
-      setError(error.message);
-    }
+      },
+      (error) => {
+        setError(error.message);
+      }
     );
 
     return () => unSubscribe();
   }, []);
+
 
   const handleClick = () => {
     if (selectedTicket != null) {
@@ -120,8 +137,5 @@ function TicketControl () {
     );
   }
 }
-
-
-
 export default TicketControl;
 
